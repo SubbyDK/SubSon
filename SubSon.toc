@@ -1,0 +1,11 @@
+## Title: |cFFFFCC00SubSon|r|cFF00FF00 by Subby|r
+## Interface: 11200
+## Author: Subby
+## Version: 0.3
+## DefaultState: enabled
+## Notes: A small addon to help my son play his Warrior.
+
+## SavedVariables: 
+## SavedVariablesPerCharacter: 
+
+SubSon.lua
