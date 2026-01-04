@@ -1,20 +1,37 @@
 ------------------------------------------------------------
--- Simple spell detection (Turtle WoW compatible)
+-- Spell cache system (performance improvement)
 ------------------------------------------------------------
+local knownSpells = {}
+
 local function HasSpell(name)
+    -- Return cached result if available
+    if knownSpells[name] ~= nil then
+        return knownSpells[name]
+    end
+
+    -- Otherwise scan the spellbook once
     local i = 1
     while true do
         local spellName = GetSpellName(i, BOOKTYPE_SPELL)
         if not spellName then
+            knownSpells[name] = false
             return false
         end
         if spellName == name then
+            knownSpells[name] = true
             return true
         end
         i = i + 1
     end
 end
 
+local function ResetSpellCache()
+    knownSpells = {}
+end
+
+------------------------------------------------------------
+-- Simple spell casting
+------------------------------------------------------------
 local function Cast(name)
     CastSpellByName(name)
 end
@@ -24,10 +41,10 @@ local function Debug(msg)
 end
 
 ------------------------------------------------------------
--- Buff detection using substring matching (no backslash issues)
+-- Buff detection using substring matching
 ------------------------------------------------------------
 local function PlayerHasBuffIcon(partial)
-    for i = 0, 40 do
+    for i = 0, 65 do
         local f = _G["BuffButton"..i]
         if f then
             local r1 = f:GetRegions()
@@ -71,17 +88,12 @@ local function ShouldExecute()
 end
 
 ------------------------------------------------------------
--- Range checks (Vanilla/Turtle accurate)
--- 1 = Inspect (28y)
--- 2 = Trade   (11.11y)
--- 3 = Duel    (9.9y)
--- 4 = Follow  (28y)
+-- Range checks
 ------------------------------------------------------------
 local function InMeleeRange()
     return CheckInteractDistance("target", 3)  -- 9.9 yards
 end
 
--- NEW: Charge only blocked if too close
 local function TooCloseForCharge()
     return CheckInteractDistance("target", 3)  -- melee range
 end
@@ -101,7 +113,7 @@ local function CanCharge()
 end
 
 ------------------------------------------------------------
--- Auto-target + Intervene + Auto-attack
+-- Auto-target + auto-attack
 ------------------------------------------------------------
 local function WarriorAutoAttackStart()
 
@@ -142,9 +154,7 @@ local function WarriorDPS_Command()
 
     WarriorAutoAttackStart()
 
-    --------------------------------------------------------
     -- Charge (only blocked if too close)
-    --------------------------------------------------------
     if CanCharge() and not TooCloseForCharge() then
         if not IsInBattleStance() then
             Cast("Battle Stance")
@@ -153,41 +163,31 @@ local function WarriorDPS_Command()
         return
     end
 
-    --------------------------------------------------------
     -- Execute
-    --------------------------------------------------------
     if HasSpell("Execute") and ShouldExecute() and GetRage() > 35 then
         Cast("Execute")
         return
     end
 
-    --------------------------------------------------------
     -- Battle Shout
-    --------------------------------------------------------
     if HasSpell("Battle Shout") and not HasBattleShout() and GetRage() >= 10 then
         Cast("Battle Shout")
         return
     end
 
-    --------------------------------------------------------
     -- Bloodthirst
-    --------------------------------------------------------
     if HasSpell("Bloodthirst") then
         Cast("Bloodthirst")
         return
     end
 
-    --------------------------------------------------------
     -- Whirlwind (only in melee range)
-    --------------------------------------------------------
     if HasSpell("Whirlwind") and InMeleeRange() then
         Cast("Whirlwind")
         return
     end
 
-    --------------------------------------------------------
     -- Heroic Strike
-    --------------------------------------------------------
     if HasSpell("Heroic Strike") and GetRage() > 15 then
         Cast("Heroic Strike")
         return
@@ -202,3 +202,10 @@ SLASH_WARRIORDPS1 = "/WarriorDPS"
 SlashCmdList["WARRIORDPS"] = function()
     WarriorDPS_Command()
 end
+
+------------------------------------------------------------
+-- Reset spell cache when learning new spells
+------------------------------------------------------------
+local f = CreateFrame("Frame")
+f:RegisterEvent("LEARNED_SPELL_IN_TAB")
+f:SetScript("OnEvent", ResetSpellCache)
